@@ -89,10 +89,10 @@
 (defun actualizar ()  
   (cond 
     ((eq turno 'turno-op)
-      (efectuar-movimiento 10 (movimiento-op) ta)
+      (efectuar-movimiento *oponente* (movimiento-op) ta)
     )
     ((eq turno 'turno-pc)
-      (efectuar-movimiento 1 (movimiento-pc) ta)
+      (efectuar-movimiento *pc* (movimiento-pc) ta)
     )
   )
 )
