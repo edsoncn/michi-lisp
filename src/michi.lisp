@@ -110,9 +110,16 @@
   )
 )
 
+;movimiento del oponente
 (defun movimiento-op()
   (format t " Tu movimiento > ")
-  (read)
+  (efectuar-movimiento *oponente* (read) ta)
+)
+
+;movimiento de la pc
+(defun movimiento-pc()
+  (format t " Su movimiento > ")
+  (efectuar-movimiento *pc* (read) ta)
 )
 
 (defun limpiar-pantalla()
@@ -123,7 +130,7 @@
   (limpiar-pantalla)
   (cond 
     ((eq q 'menu) (mostrar-menu))
-    ((eq q 'turno-op) (imprimir-tablero ta))
+    ((or (eq q 'turno-op) (eq q 'turno-pc)) (imprimir-tablero ta))
   )
 )
 
@@ -137,7 +144,12 @@
       )
     )
     ((eq q 'turno-op)
-      (movimiento-op)
+      (setq ta (movimiento-op))
+      (setq q 'turno-pc)
+    )
+    ((eq q 'turno-pc)
+      (setq ta (movimiento-pc))
+      (setq q 'turno-op)
     )
   )
 )
