@@ -32,23 +32,25 @@
 )
 
 (defun imprimir-fila (x y z)
-  (format t "~&  ~A | ~A | ~A " (convertir-a-letras x) (convertir-a-letras y) (convertir-a-letras z))
+  (format t "~&    ~A | ~A | ~A " (convertir-a-letras x) (convertir-a-letras y) (convertir-a-letras z))
 )
 
 (defun imprimir-tablero (tablero)
   (format t "~%")
   (imprimir-fila (nth 1 tablero) (nth 2 tablero) (nth 3 tablero))
-  (format t "~& ---+---+---")
+  (format t "~&   ---+---+---")
   (imprimir-fila (nth 4 tablero) (nth 5 tablero) (nth 6 tablero))
-  (format t "~& ---+---+---")
+  (format t "~&   ---+---+---")
   (imprimir-fila (nth 7 tablero) (nth 8 tablero) (nth 9 tablero))
   (format t "~%~%")
 )
 
 ;realiza el movimiento de un jugador en la posicion indicada del tablero
 (defun efectuar-movimiento (jugador pos tablero)
-  (setf (nth pos tablero) jugador)
-  tablero
+  (when (and (>= pos 1) (<= pos 9) (zerop (nth pos tablero)))
+    (setf (nth pos tablero) jugador)
+    tablero
+  )
 )
 
 ;devuelve la suma de los numeros contenidos por una tripleta
@@ -65,6 +67,21 @@
 (defun ganador-p (tablero)
   (let ((sumas (calcula-sumas tablero)))
     (or (member (* 3 *pc*) sumas) (member (* 3 *oponente*) sumas))
+  )
+)
+
+;valida si el tablero esta lleno
+(defun tablero-total-p (tablero)
+  (not (member 0  tablero))
+)
+
+;estrategia aleatoria
+(defun estrategia-aleatoria (tablero)
+  (let ( (pos (+ 1 (random 9))) )
+    (if (zerop (nth pos tablero)) 
+      pos 
+      (estrategia-aleatoria tablero)
+    )
   )
 )
 
@@ -88,6 +105,7 @@
   (setq q 'menu)
   (setq ta (crear-tablero))
   (setq op 0)
+  (limpiar-pantalla)
 )
 
 (defun mostrar-menu ()
@@ -101,6 +119,7 @@
   (format t " [0] Salir        ~%")
   (format t "+----------------+~%")
 )
+
 (defun opcion()
   (format t " Opcion > ")
   (setq op (read))
@@ -110,16 +129,37 @@
   )
 )
 
+;utilizamos la estrategia elegida en el menu para el movimiento de la pc
+(defun estrategia-elegida()
+  (cond
+    ((= op 1) (estrategia-aleatoria ta))
+  )
+)
+
 ;movimiento del oponente
 (defun movimiento-op()
   (format t " Tu movimiento > ")
-  (efectuar-movimiento *oponente* (read) ta)
+  (do ( (aux (efectuar-movimiento *oponente* (read) ta)) )
+    (aux aux)
+    (format t " Re-ingresar movimiento > ")
+    (setq aux (efectuar-movimiento *oponente* (read) ta))
+  )
 )
 
 ;movimiento de la pc
 (defun movimiento-pc()
-  (format t " Su movimiento > ")
-  (efectuar-movimiento *pc* (read) ta)
+  (format t " Maquina > ")
+  (let ( (pos (estrategia-elegida)) )
+    (format t "~A " pos)
+    (sleep 1)
+    (efectuar-movimiento *pc* pos ta)
+  )
+)
+
+;continuar o salir del juego
+(defun continuar-salir()
+  (format t " Constinuar o salir (1: Menu, 0: Salir) > ")
+  (read)
 )
 
 (defun limpiar-pantalla()
@@ -131,6 +171,9 @@
   (cond 
     ((eq q 'menu) (mostrar-menu))
     ((or (eq q 'turno-op) (eq q 'turno-pc)) (imprimir-tablero ta))
+    ((eq q 'ganador-op) (imprimir-tablero ta) (format t "  >> GANASTE << ~%~%"))
+    ((eq q 'ganador-pc) (imprimir-tablero ta) (format t "  << PERDISTE >> ~%~%"))
+    ((eq q 'empate) (imprimir-tablero ta) (format t "   -- EMPATE -- ~%~%"))
   )
 )
 
@@ -143,13 +186,31 @@
         ((equal op 0) (setq q 'fin))
       )
     )
-    ((eq q 'turno-op)
-      (setq ta (movimiento-op))
-      (setq q 'turno-pc)
+    ((or (eq q 'turno-op) (eq q 'turno-pc))
+      (let ( (gana (ganador-p ta)) (lleno (tablero-total-p ta)) )
+        (if gana
+          (setq q (if (= (car gana) (* 3 *oponente*)) 'ganador-op 'ganador-pc))
+          (if lleno
+            (setq q 'empate)            
+            (cond          
+              ((eq q 'turno-op)
+                (setq ta (movimiento-op))
+                (setq q 'turno-pc)
+              )
+              ((eq q 'turno-pc)
+                (setq ta (movimiento-pc))
+                (setq q 'turno-op)
+              )
+            )
+          )
+        )
+      )
     )
-    ((eq q 'turno-pc)
-      (setq ta (movimiento-pc))
-      (setq q 'turno-op)
+    ((or (eq q 'ganador-op) (eq q 'ganador-pc) (eq q 'empate))      
+      (if (zerop (continuar-salir))
+        (setq q 'fin)
+        (init)
+      )
     )
   )
 )
