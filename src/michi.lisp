@@ -47,9 +47,11 @@
 
 ;realiza el movimiento de un jugador en la posicion indicada del tablero
 (defun efectuar-movimiento (jugador pos tablero)
-  (when (and (>= pos 1) (<= pos 9) (zerop (nth pos tablero)))
-    (setf (nth pos tablero) jugador)
-    tablero
+  (let ((aux (copy-list tablero)))
+    (when (and (>= pos 1) (<= pos 9) (zerop (nth pos aux)))
+      (setf (nth pos aux) jugador)
+      aux
+    )
   )
 )
 
@@ -69,13 +71,23 @@
     (or (member (* 3 *pc*) sumas) (member (* 3 *oponente*) sumas))
   )
 )
+(defun ganador-pc (tablero)
+  (let ((sumas (calcula-sumas tablero)))
+    (member (* 3 *pc*) sumas)
+  )
+)
+(defun ganador-oponente (tablero)
+  (let ((sumas (calcula-sumas tablero)))
+    (member (* 3 *oponente*) sumas)
+  )
+)
 
 ;valida si el tablero esta lleno
 (defun tablero-total-p (tablero)
   (not (member 0  tablero))
 )
 
-;estrategia aleatoria
+;ESTRATEGIA ALEATORIA
 (defun estrategia-aleatoria (tablero)
   (let ( (pos (+ 1 (random 9))) )
     (if (zerop (nth pos tablero)) 
@@ -84,6 +96,76 @@
     )
   )
 )
+
+;ESTRATEGIA PRIMERO EL MEJOR
+
+;verifica si casilla esta vacia
+;genera c/ sucesor con la fc efectuar-movimiento
+;forma una lista con resultado
+(defun generar-sucesores(tablero jugador)
+  (mapcan
+    #'(lambda (m) 
+        (if (zerop (nth m tablero)) 
+          (list (efectuar-movimiento jugador m tablero)) 
+          nil
+        )
+      )
+      '(1 2 3 4 5 6 7 8 9)
+  )
+)
+
+(defun lineas-abiertas (pos)
+  (let (
+      (sumas (calcula-sumas pos))
+      (abiertasX 0)
+      (abiertasO 0)
+    )
+    (dolist (s sumas)
+      (cond 
+        ((equal 0 s)  (setf abiertasX (+ abiertasX 1)) 		
+                      (setf abiertasO (+ abiertasO 1)))
+        ((equal 1 s)  (setf abiertasO (+ abiertasO 1)))
+        ((equal 2 s)  (setf abiertasO (+ abiertasO 1)))
+        ((equal 10 s) (setf abiertasX (+ abiertasX 1)))
+        ((equal 20 s) (setf abiertasX (+ abiertasX 1)))
+      )
+    )
+    (setf res (- abiertasX abiertasO))
+  )
+)
+
+(defun feval-primero-mejor (tablero)
+  (cond 
+    ((ganador-pc tablero) 1000)
+    ((ganador-oponente tablero) -1000)
+    (t (lineas-abiertas tablero))
+  )
+)
+;Pasos q se efectuan en esta fc:
+; -aplica feval para evaluar c/ sucesor  
+; -forma sublistas con cada sucesor y su valor de evaluación
+(defun sucesores-con-evaluacion (tablero sucesores)
+  (mapcar #'(lambda (n) (list n (feval-primero-mejor n))) sucesores)
+)
+
+;Pasos q se efectuan en esta fc:
+; -genera los sucesores con gen-mov()
+; -evalua los sucesores con sucesoes-con-evaluacion()
+; -ordena los sucesores
+; -obtiene la posicion i del 10 insertado en el sucesor seleccionado (mejor)
+; El i retornado sera pos en fc movimiento-pc
+(defun estrategia-primero-el-mejor (tablero jugador)
+  (let* (
+      (sucesores (generar-sucesores tablero jugador)) 
+      (sucesores-peso (sucesores-con-evaluacion tablero sucesores))
+    )
+    (sort sucesores-peso #'(lambda (x y) (>= (second x) (second y))))
+    (do ((i 1 (+ i 1))) 
+      ((/= (nth i tablero) (nth i (caar sucesores-peso))) i)
+    )
+  )
+)
+
 
 ;DEFINICION DEL JUEGO
 
@@ -133,6 +215,7 @@
 (defun estrategia-elegida()
   (cond
     ((= op 1) (estrategia-aleatoria ta))
+    ((= op 2) (estrategia-primero-el-mejor ta *pc*))
   )
 )
 
@@ -182,8 +265,8 @@
     ((eq q 'menu) 
       (opcion)
       (cond
-        ((equal op 1) (setq q 'turno-op))
-        ((equal op 0) (setq q 'fin))
+        ((or (= op 1) (= op 2) (= op 3)) (setq q 'turno-op))
+        ((= op 0) (setq q 'fin))
       )
     )
     ((or (eq q 'turno-op) (eq q 'turno-pc))
